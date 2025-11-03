@@ -6,7 +6,7 @@ Logiq is an open-source, self-hostable backend that ingests raw application logs
 
 - **Fast ingestion**: `/ingest` accepts JSON payloads and queues processing instantly (<50 ms target).
 - **Semantic retrieval**: Logs are embedded with Sentence-Transformers and stored in PostgreSQL + pgvector for similarity search.
-- **LLM-backed answers**: `/query` transforms questions into embeddings, retrieves relevant logs, and synthesizes responses with a configured open-source 7B model.
+- **LLM-backed answers**: `/query` transforms questions into embeddings, retrieves relevant logs, and synthesizes responses with a configurable open-source model (Gemma 2 2B by default).
 - **Containerised stack**: FastAPI API, Celery workers, PostgreSQL, and Redis orchestrated via Docker Compose.
 
 ## Architecture
@@ -25,7 +25,7 @@ More design details live in `docs/architecture.md`.
 
 - Docker & Docker Compose
 - Internet access for first-time model downloads (`sentence-transformers`)
-- A GGUF model file for the LLM (e.g., `llama-2-7b-chat.gguf`) placed under `./models/`
+- A GGUF model file for the LLM (the default Compose setup looks for `./models/gemma2-2b-logiq.gguf`)
 
 ### 2. Environment Configuration
 
@@ -37,10 +37,10 @@ CELERY_BROKER_URL=redis://redis:6379/0
 CELERY_RESULT_BACKEND=redis://redis:6379/0
 EMBEDDING_MODEL_NAME=sentence-transformers/all-MiniLM-L6-v2
 LLM_MODEL_PATH=/models/gemma2-2b-logiq.gguf
-LLM_N_CTX=8192
+LLM_N_CTX=4096
 LLM_N_THREADS=8
 LLM_N_GPU_LAYERS=0
-LLM_BATCH_SIZE=1024
+LLM_BATCH_SIZE=512
 LLM_TEMPERATURE=0.1
 LLM_TOP_P=0.9
 RETRIEVAL_TOP_K=5
@@ -117,18 +117,18 @@ Response:
 
 If the LLM model is not configured, Logiq gracefully falls back to returning the matching log messages verbatim.
 
-### Using Gemma 3 12B from Ollama
+### Using Gemma 2 2B from Ollama
 
 1. Pull the model with Ollama (example for the instruct variant):
 
    ```
-   ollama pull gemma3:12b-instruct
+   ollama pull gemma2:2b
    ```
 
 2. Identify the downloaded GGUF blob:
 
    ```
-   ollama show gemma3:12b-instruct --modelfile | grep FROM
+   ollama show gemma2:2b --modelfile | grep FROM
    ```
 
    The output contains a blob path similar to `./blobs/sha256-<hash>`. The full file lives under
@@ -138,23 +138,23 @@ If the LLM model is not configured, Logiq gracefully falls back to returning the
 
    ```
    mkdir -p models
-   cp ~/.ollama/models/blobs/sha256-<hash> models/gemma3-12b-instruct-q4_k_m.gguf
+   cp ~/.ollama/models/blobs/sha256-<hash> models/gemma2-2b-logiq.gguf
    ```
 
 4. Update `.env` (or your Compose overrides) so the services load the file and broaden the context window for the larger model:
 
    ```
-   LLM_MODEL_PATH=/models/gemma3-12b-instruct-q4_k_m.gguf
-   LLM_N_CTX=8192
-   LLM_BATCH_SIZE=1024
+   LLM_MODEL_PATH=/models/gemma2-2b-logiq.gguf
+   LLM_N_CTX=4096
+   LLM_BATCH_SIZE=512
    LLM_N_THREADS=$(sysctl -n hw.logicalcpu)  # adjust for your machine
    # Optional, if you have GPU acceleration available via llama.cpp builds:
-   # LLM_N_GPU_LAYERS=60
+   # LLM_N_GPU_LAYERS=20
    ```
 
-5. Restart the containers (`docker compose restart api worker`). The first query will take longer while the 12B model initializes; subsequent requests reuse the loaded weights.
+5. Restart the containers (`docker compose restart api worker`). The first query will take a moment while the model warms up; subsequent requests reuse the loaded weights.
 
-> Tip: Quantized variants (`q4_k_m`, `q5_k_m`, etc.) offer the best trade-off for CPU-only machines. If you notice context overflow errors, increase `LLM_N_CTX` or reduce request complexity.
+> Tip: Quantized variants (`q4_k_m`, `q5_k_m`, etc.) offer the best CPU-only experience. If you notice context overflow errors, increase `LLM_N_CTX` or reduce request complexity.
 
 ## Development Workflow
 
