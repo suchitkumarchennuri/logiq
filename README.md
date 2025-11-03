@@ -38,7 +38,7 @@ CELERY_RESULT_BACKEND=redis://redis:6379/0
 EMBEDDING_MODEL_NAME=sentence-transformers/all-MiniLM-L6-v2
 LLM_MODEL_PATH=/models/gemma2-2b-logiq.gguf
 LLM_N_CTX=4096
-LLM_N_THREADS=8
+LLM_N_THREADS=0
 LLM_N_GPU_LAYERS=0
 LLM_BATCH_SIZE=512
 LLM_TEMPERATURE=0.1
@@ -116,6 +116,14 @@ Response:
 ```
 
 If the LLM model is not configured, Logiq gracefully falls back to returning the matching log messages verbatim.
+
+### Integrating with Existing Systems
+
+You can adopt Logiq as a stand-alone service or embed individual components inside a Python monorepo:
+
+- **REST ingestion/query** (recommended): Point your applications at `/ingest` and `/query`. Both endpoints accept/return JSON, so you can drop them behind an internal load balancer and start publishing logs immediately.
+- **Publish directly to Celery**: Import `process_log` from `app.tasks` and call `process_log.delay({...})` if you already operate a Celery-compatible broker. Use the same payload schema as the `/ingest` endpoint.
+- **Embed the pipeline**: Import `RAGPipeline` (`app/services/rag.py`) for in-process natural-language queries. Combine it with `get_db_session()` to run queries without HTTP.
 
 ### Using Gemma 2 2B from Ollama
 
