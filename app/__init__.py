@@ -1,0 +1,1 @@
+"""Logiq application package."""

@@ -1,0 +1,81 @@
+services:
+  api:
+    build: .
+    container_name: logiq-api
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://logiq:logiq@db:5432/logiq}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+      - EMBEDDING_MODEL_NAME=${EMBEDDING_MODEL_NAME:-sentence-transformers/all-MiniLM-L6-v2}
+      - LLM_MODEL_PATH=${LLM_MODEL_PATH:-/models/gemma2-2b-logiq.gguf}
+      - LLM_N_CTX=${LLM_N_CTX:-4096}
+      - LLM_N_THREADS=${LLM_N_THREADS:-0}
+      - LLM_N_GPU_LAYERS=${LLM_N_GPU_LAYERS:-0}
+      - LLM_BATCH_SIZE=${LLM_BATCH_SIZE:-512}
+      - LLM_TEMPERATURE=${LLM_TEMPERATURE:-0.1}
+      - LLM_TOP_P=${LLM_TOP_P:-0.9}
+      - RETRIEVAL_TOP_K=${RETRIEVAL_TOP_K:-5}
+      - MAX_CONTEXT_LOGS=${MAX_CONTEXT_LOGS:-10}
+      - LOGIQ_LOG_LEVEL=${LOGIQ_LOG_LEVEL:-INFO}
+    volumes:
+      - ./:/app
+      - ./models:/models
+    depends_on:
+      - db
+      - redis
+
+  worker:
+    build: .
+    container_name: logiq-worker
+    command: celery -A app.celery_app.celery worker --loglevel=info
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://logiq:logiq@db:5432/logiq}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+      - EMBEDDING_MODEL_NAME=${EMBEDDING_MODEL_NAME:-sentence-transformers/all-MiniLM-L6-v2}
+      - LLM_MODEL_PATH=${LLM_MODEL_PATH:-/models/gemma2-2b-logiq.gguf}
+      - LLM_MODEL_PATH=${LLM_MODEL_PATH:-/models/gemma3-12b-logiq.gguf}
+      - LLM_N_CTX=${LLM_N_CTX:-4096}
+      - LLM_N_THREADS=${LLM_N_THREADS:-0}
+      - LLM_N_GPU_LAYERS=${LLM_N_GPU_LAYERS:-0}
+      - LLM_BATCH_SIZE=${LLM_BATCH_SIZE:-512}
+      - LLM_TEMPERATURE=${LLM_TEMPERATURE:-0.1}
+      - LLM_TOP_P=${LLM_TOP_P:-0.9}
+      - RETRIEVAL_TOP_K=${RETRIEVAL_TOP_K:-5}
+      - MAX_CONTEXT_LOGS=${MAX_CONTEXT_LOGS:-10}
+      - LOGIQ_LOG_LEVEL=${LOGIQ_LOG_LEVEL:-INFO}
+    volumes:
+      - ./:/app
+      - ./models:/models
+    depends_on:
+      - db
+      - redis
+
+  db:
+    image: ankane/pgvector:latest
+    container_name: logiq-db
+    environment:
+      - POSTGRES_DB=logiq
+      - POSTGRES_USER=logiq
+      - POSTGRES_PASSWORD=logiq
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: logiq-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+volumes:
+  postgres-data:
+  redis-data:

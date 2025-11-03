@@ -1,0 +1,18 @@
+fastapi==0.115.0
+uvicorn[standard]==0.23.2
+celery==5.3.6
+redis==5.0.1
+SQLAlchemy==2.0.23
+psycopg2-binary==2.9.9
+pgvector==0.2.3
+pydantic==2.5.3
+pydantic-settings==2.1.0
+python-dotenv==1.0.0
+sentence-transformers==2.6.1
+transformers==4.35.2
+accelerate==0.24.1
+llama-cpp-python @ git+https://github.com/abetlen/llama-cpp-python.git@c37132bac860fcc333255c36313f89c4f49d4c8d
+numpy==1.26.2
+typing-extensions>=4.10.0,<5.0
+tenacity==8.2.3
+
